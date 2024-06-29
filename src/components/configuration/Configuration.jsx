@@ -5,7 +5,8 @@ export default function Configuration() {
     const [port, updatePort] = useState(null);
     const [sendEvents, updateSendEvents] = useState([]);
     const [socket, updateSocket] = useState(null);
-
+    const [receivedEvents, updateReceivedEvents] = useState([]);
+    const [extraHeaders, updateExtraHeaders] = useState(null);
     const handleChange = (event) => {
         updatePort(event.target.value);
     };
@@ -15,30 +16,32 @@ export default function Configuration() {
     };
 
     const submitConfig = (e) => {
+        
         e.preventDefault();
         const newPort = e.target.port.value;
         const newSendEvent = e.target.sendEvent.value;
+        const newExtraHeaders = e.target.extraHeaders?.value;
 
         updatePort(newPort);
-        const newSocket = io(newPort);
-            newSocket.on('connect', () => {
-                updateSocket(newSocket)
-            });
+        let newExtraHeadersObj
+        if(newExtraHeaders){
+            newExtraHeadersObj = JSON.parse(newExtraHeaders);
+            updateExtraHeaders(newExtraHeadersObj);
+        }
+        const newSocket = io(newPort,{
+            extraHeaders: newExtraHeadersObj
+        });
+        
+        newSocket.on('connect', () => {
+            updateSocket(newSocket)
+        });
+
         if (newSendEvent) {
-            updateSendEvents([...sendEvents, newSendEvent]);
+            // console.log(sendEvents)
+            const events = newSendEvent.split(',');
+            updateSendEvents(events);
         }
     };
-
-    // useEffect(() => {
-
-    //     console.log(newSocket)
-    //     newSocket.on('connect', () => {
-    //         console.log('Connected!');
-    //     });
-
-    //     // Cleanup on component unmount
-    //     return () => newSocket.close();
-    // }, []);
 
     useEffect(() => {
         
@@ -49,6 +52,13 @@ export default function Configuration() {
                 socket.on(event, (data) => {
                     console.log(`Event listened: ${event}`);
                     console.log('Data: ', data);
+                    const newObj = {
+                        "Event Listened": event,
+                        "Data": data
+                    }
+                    receivedEvents.push(newObj);
+                    updateReceivedEvents([...receivedEvents]);
+                    console.log({receivedEvents})
                 });
             });
         }
@@ -58,7 +68,8 @@ export default function Configuration() {
         <>
             <form onSubmit={submitConfig}>
                 <input type="text" name="port" placeholder="Port" />
-                <input type="text" name="sendEvent" placeholder="Send Event" />
+                <input type="text" name="receivedEvent" placeholder="Send Event, separated by comma" />
+                <textarea id="jsonInput" placeholder="headers in json format" rows="10" cols="50" name="extraHeaders"></textarea>
                 <button type="submit">Save</button>
             </form>
             <div>
@@ -69,6 +80,12 @@ export default function Configuration() {
                 <button onClick={() => socket.emit('fromClient', { message: 'Hello from client' })}>
                     Emit Event
                 </button>
+            )}
+            {receivedEvents.map((x,i)=>
+             <details key={i}>
+                <summary>{x["Event Listened"]}</summary>
+                <p>{x["Data"]}</p>
+            </details> 
             )}
         </>
     );
